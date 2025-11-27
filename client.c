@@ -25,7 +25,7 @@ void die(char *s) {
     exit(1);
 }
 
-// Função para gerar temperatura aleatória (simulação de sensor)
+// Função para gerar temperatura aleatória
 int generate_temperature() {
     return (rand() % 31) + 10;  // Temperatura entre 10°C e 40°C
 }
@@ -43,7 +43,7 @@ void create_snd_message(char *message, int temperature) {
 }
 
 // Função para processar resposta do servidor
-void process_response(char *buf) {
+void process_response(char *buf, int last_command_was_get) {
     char tipo[4];
     char tamanho[4];
     char corpo[BUFLEN];
@@ -72,6 +72,16 @@ void process_response(char *buf) {
 
     if (strncmp(tipo, "ACK", 3) == 0) {
         printf("  [STATUS]: Confirmacao recebida\n");
+
+        // Se foi resposta ao GET, exibe a hora na tela
+        if (last_command_was_get && body_size > 0) {
+            printf("\n*** HORA RECEBIDA DO SERVIDOR ***\n");
+            printf("*** %s ***\n\n", corpo);
+        }
+        // Se foi resposta ao SND, destaca o OK
+        else if (!last_command_was_get && body_size > 0) {
+            printf("\n*** CONFIRMACAO: %s ***\n\n", corpo);
+        }
     } else if (strncmp(tipo, "ERR", 3) == 0) {
         printf("  [STATUS]: Erro reportado pelo servidor\n");
     }
@@ -111,6 +121,7 @@ int main(void) {
         printf("\n=== Menu de Opcoes ===\n");
         printf("1 - Enviar comando GET (solicitar informacoes)\n");
         printf("2 - Enviar comando SND (enviar temperatura)\n");
+        printf("3 - Executar fluxo completo automatico (GET -> SND -> Fechar)\n");
         printf("0 - Sair\n");
         printf("Escolha uma opcao: ");
 
@@ -122,12 +133,72 @@ int main(void) {
             break;
         }
 
+        // Opção 3: Fluxo automático conforme protocolo da imagem
+        if (opcao == 3) {
+            printf("\n========================================\n");
+            printf("EXECUTANDO FLUXO AUTOMATICO DO PROTOCOLO\n");
+            printf("========================================\n");
+
+            // Passo 1: Enviar GET
+            printf("\n[PASSO 1] Enviando comando GET (solicitar hora atual)...\n");
+            memset(message, '\0', BUFLEN);
+            create_get_message(message);
+            printf("Mensagem formatada: %s\n", message);
+
+            if (sendto(s, message, strlen(message), 0, (struct sockaddr *) &si_other, slen) == -1)
+                die("sendto()");
+            printf("<<< Mensagem GET enviada\n");
+
+            // Passo 2: Receber hora atual
+            memset(buf, '\0', BUFLEN);
+            printf("\n[PASSO 2] Aguardando hora atual do servidor...\n");
+
+            if (recvfrom(s, buf, BUFLEN, 0, (struct sockaddr *) &si_other, &slen) == -1)
+                die("recvfrom()");
+
+            printf(">>> Resposta recebida do servidor\n");
+            printf("Mensagem bruta: %s\n", buf);
+            process_response(buf, 1);
+
+            // Passo 3: Enviar SND com temperatura
+            printf("\n[PASSO 3] Enviando temperatura para o servidor...\n");
+            memset(message, '\0', BUFLEN);
+            int temperatura = generate_temperature();
+            create_snd_message(message, temperatura);
+            printf("Temperatura gerada: %dC\n", temperatura);
+            printf("Mensagem formatada: %s\n", message);
+
+            if (sendto(s, message, strlen(message), 0, (struct sockaddr *) &si_other, slen) == -1)
+                die("sendto()");
+            printf("<<< Mensagem SND enviada\n");
+
+            // Passo 4: Receber OK
+            memset(buf, '\0', BUFLEN);
+            printf("\n[PASSO 4] Aguardando confirmacao do servidor...\n");
+
+            if (recvfrom(s, buf, BUFLEN, 0, (struct sockaddr *) &si_other, &slen) == -1)
+                die("recvfrom()");
+
+            printf(">>> Resposta recebida do servidor\n");
+            printf("Mensagem bruta: %s\n", buf);
+            process_response(buf, 0);
+
+            // Passo 5: Fechar conexão
+            printf("\n[PASSO 5] Fechando conexao...\n");
+            printf("========================================\n");
+            printf("FLUXO AUTOMATICO CONCLUIDO COM SUCESSO!\n");
+            printf("========================================\n");
+            break;
+        }
+
         memset(message, '\0', BUFLEN);
 
         // Cria a mensagem conforme o protocolo SMSP
+        int is_get_command = 0;
         if (opcao == 1) {
             create_get_message(message);
             printf("\n>>> Enviando comando GET\n");
+            is_get_command = 1;
         } else if (opcao == 2) {
             int temp = generate_temperature();
             create_snd_message(message, temp);
@@ -157,7 +228,7 @@ int main(void) {
         printf("Mensagem bruta: %s\n", buf);
 
         // Processa a resposta
-        process_response(buf);
+        process_response(buf, is_get_command);
     }
 
     close(s);

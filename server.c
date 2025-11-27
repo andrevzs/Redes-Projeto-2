@@ -55,16 +55,20 @@ void process_message(char *buf, char *response) {
     if (strncmp(tipo, "GET", 3) == 0) {
         printf("  [ACAO]: Solicitacao de informacoes recebida\n");
 
-        // Responde com ACK e status do sistema
-        char ack_body[] = "Sistema OK - Hub operacional";
+        // Obtém a hora atual do sistema
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        char ack_body[50];
+        sprintf(ack_body, "Hora atual (Ex: %02d:%02d:%02d)", t->tm_hour, t->tm_min, t->tm_sec);
+
         sprintf(response, "ACK,%03d,%s", (int)strlen(ack_body), ack_body);
     }
     // Processa comando SND
     else if (strncmp(tipo, "SND", 3) == 0) {
         printf("  [ACAO]: Temperatura recebida: %s\n", corpo);
 
-        // Responde com ACK de confirmação
-        char ack_body[] = "Dados recebidos com sucesso";
+        // Responde com ACK de confirmação contendo 'OK'
+        char ack_body[] = "OK";
         sprintf(response, "ACK,%03d,%s", (int)strlen(ack_body), ack_body);
     }
     // Comando inválido

@@ -59,7 +59,7 @@ void process_message(char *buf, char *response) {
         time_t now = time(NULL);
         struct tm *t = localtime(&now);
         char ack_body[50];
-        sprintf(ack_body, "Hora atual (Ex: %02d:%02d:%02d)", t->tm_hour, t->tm_min, t->tm_sec);
+        sprintf(ack_body, "Hora atual: %02d:%02d:%02d", t->tm_hour, t->tm_min, t->tm_sec);
 
         sprintf(response, "ACK,%03d,%s", (int)strlen(ack_body), ack_body);
     }

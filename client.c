@@ -122,6 +122,7 @@ int main(void) {
         printf("1 - Enviar comando GET (solicitar informacoes)\n");
         printf("2 - Enviar comando SND (enviar temperatura)\n");
         printf("3 - Executar fluxo completo automatico (GET -> SND -> Fechar)\n");
+        printf("4 - Enviar comando INVALIDO (testar resposta ERR)\n");
         printf("0 - Sair\n");
         printf("Escolha uma opcao: ");
 
@@ -203,6 +204,11 @@ int main(void) {
             int temp = generate_temperature();
             create_snd_message(message, temp);
             printf("\n>>> Enviando comando SND (Temperatura: %dC)\n", temp);
+        } else if (opcao == 4) {
+            // Envia mensagem inválida para testar resposta ERR
+            sprintf(message, "XXX,010,Teste Erro");
+            printf("\n>>> Enviando comando INVALIDO (XXX)\n");
+            printf(">>> Esperando resposta ERR do servidor...\n");
         } else {
             printf("Opcao invalida!\n");
             continue;
